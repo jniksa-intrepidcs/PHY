@@ -19,7 +19,7 @@ class Nameless14534(ctypes.Structure):
 
 
 
-class Nameless18511(ctypes.Union):
+class flags(ctypes.Union):
     _anonymous_  = ('Nameless14534',)
     _fields_ = [
         ('Nameless14534', Nameless14534),
@@ -28,7 +28,7 @@ class Nameless18511(ctypes.Union):
 
 
 
-class Nameless40028(ctypes.Union):
+class clause(ctypes.Union):
     _fields_ = [
         ('clause22', PhyRegPktClause22Mess_t),
         ('clause45', PhyRegPktClause45Mess_t),
@@ -37,10 +37,9 @@ class Nameless40028(ctypes.Union):
 
 
 class s_phy_reg_pkt(ctypes.Structure):
-    _anonymous_  = ('Nameless18511', 'Nameless40028')
     _fields_ = [
-        ('Nameless18511', Nameless18511),
-        ('Nameless40028', Nameless40028),
+        ('flags', flags),
+        ('clause', clause),
     ]
 
 

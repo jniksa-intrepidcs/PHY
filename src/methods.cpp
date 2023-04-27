@@ -4199,3 +4199,75 @@ PyObject* meth_get_all_chip_versions(PyObject* self, PyObject* args)
     }
     return set_ics_exception(exception_runtime_error(), "This is a bug!");
 }
+
+template<typename T>
+class BufferedStruct {
+public:
+    BufferedStruct(PyObject* obj)
+    {
+        PyObject_GetBuffer(obj, &mBuffer, PyBUF_C_CONTIGUOUS | PyBUF_WRITABLE);
+    }
+    ~BufferedStruct()
+    {
+        PyBuffer_Release(&mBuffer);
+    }
+    operator T*()
+    {
+        return (T*)mBuffer.buf;
+    }
+    T* operator->()
+    {
+        return (T*)mBuffer.buf;
+    }
+    T& operator*()
+    {
+        return *(T*)mBuffer.buf;
+    }
+private:
+    Py_buffer mBuffer;
+};
+
+PyObject* meth_read_write_phy_settings(PyObject* self, PyObject* args)
+{
+    PyObject* obj = NULL;
+    PyObject* settings = NULL;
+    if (!PyArg_ParseTuple(args, arg_parse("OO:", __FUNCTION__), &obj, &settings)) {
+        return NULL;
+    }
+    if (!PyNeoDevice_CheckExact(obj)) {
+        return set_ics_exception(exception_runtime_error(),
+                                 "Argument must be of type " MODULE_NAME "." NEO_DEVICE_OBJECT_NAME);
+    }
+    ICS_HANDLE handle = PyNeoDevice_GetHandle(obj);
+    try {
+        ice::Library* lib = dll_get_library();
+        if (!lib) {
+            char buffer[512];
+            return set_ics_exception(exception_runtime_error(), dll_get_error(buffer));
+        }
+        ice::Function<int __stdcall(ICS_HANDLE, PhyRegPkt_t*, size_t, size_t)> icsneoReadWritePHYSettings(lib, "icsneoReadWritePHYSettings");
+        const size_t count = PyList_Size(settings);
+        BufferedStruct<PhyRegPkt_t> ccSettings(settings);
+        ccSettings->flags.Enabled;
+        std::vector<Py_buffer> buffers(count);
+        std::vector<PhyRegPkt_t> cSettings(count);
+        // PyObject_GetBuffer cannot be called on a PyListObject so map the data accordingly
+        for (size_t i = 0; i < count; ++i) {
+            auto setting = PyList_GetItem(settings, i);
+            buffers[i] = Py_buffer{};
+            PyObject_GetBuffer(setting, &buffers[i], PyBUF_C_CONTIGUOUS | PyBUF_WRITABLE);
+            cSettings[i] = *(PhyRegPkt_t*)&buffers[i].buf;
+        }
+        Py_BEGIN_ALLOW_THREADS;
+        icsneoReadWritePHYSettings(handle, cSettings.data(), sizeof(PhyRegPkt_t), count);
+        Py_END_ALLOW_THREADS;
+        for (size_t i = 0; i < count; ++i) {
+            *(PhyRegPkt_t*)&buffers[i].buf = cSettings[i];
+            PyBuffer_Release(&buffers[i]);
+        }
+        Py_RETURN_NONE;
+    } catch (ice::Exception& ex) {
+        return set_ics_exception(exception_runtime_error(), (char*)ex.what());
+    }
+    return set_ics_exception(exception_runtime_error(), "This is a bug!");
+}

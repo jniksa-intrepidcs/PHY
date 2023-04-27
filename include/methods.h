@@ -99,6 +99,7 @@ extern "C"
     PyObject* meth_generic_api_get_status(PyObject* self, PyObject* args);
     PyObject* meth_get_gptp_status(PyObject* self, PyObject* args);       // icsneoGetGPTPStatus
     PyObject* meth_get_all_chip_versions(PyObject* self, PyObject* args); // icsneoGetAllChipVersions
+    PyObject* meth_read_write_phy_settings(PyObject* self, PyObject* args);
 
 #ifdef _cplusplus
 }
@@ -1870,6 +1871,23 @@ extern "C"
                 "(:class:`ics.structures.st_chip_versions.st_chip_versions`)\n\n"                                      \
                 "\n"
 
+#define _DOC_READ_WRITE_PHY_SETTINGS                                                                                   \
+    MODULE_NAME ".read_write_phy_settings(device, settings)\n"                                          \
+                "\n"                                                                                                   \
+                "Get all the chip (firmware) versions of the device.\n"                                                \
+                "\n"                                                                                                   \
+                "Args:\n"                                                                                              \
+                "\tdevice (:class:`" MODULE_NAME "." NEO_DEVICE_OBJECT_NAME "`): :class:`" MODULE_NAME                 \
+                "." NEO_DEVICE_OBJECT_NAME "`\n\n"                                                                     \
+                "\n"                                                                                                   \
+                "Raises:\n"                                                                                            \
+                "\t:class:`" MODULE_NAME ".RuntimeError`\n"                                                            \
+                "\n"                                                                                                   \
+                "Returns:\n"                                                                                           \
+                "\tics.structures.st_chip_versions.st_chip_versions "                                                  \
+                "(:class:`ics.structures.st_chip_versions.st_chip_versions`)\n\n"                                      \
+                "\n"
+
 static PyMethodDef IcsMethods[] = {
     _EZ_ICS_STRUCT_METHOD("find_devices",
                           "icsneoFindNeoDevices",
@@ -2365,6 +2383,12 @@ static PyMethodDef IcsMethods[] = {
                           meth_get_all_chip_versions,
                           METH_VARARGS,
                           _DOC_GET_ALL_CHIP_VERSIONS),
+    _EZ_ICS_STRUCT_METHOD("read_write_phy_settings",
+                          "icsneoReadWritePHYSettings",
+                          "ReadWritePHYSettings",
+                          meth_read_write_phy_settings,
+                          METH_VARARGS,
+                          _DOC_READ_WRITE_PHY_SETTINGS),
 
     { "override_library_name", (PyCFunction)meth_override_library_name, METH_VARARGS, _DOC_OVERRIDE_LIBRARY_NAME },
     { "get_library_path", (PyCFunction)meth_get_library_path, METH_NOARGS, "" },

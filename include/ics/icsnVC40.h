@@ -5083,13 +5083,13 @@ typedef struct SPhyRegPkt
 			uint16_t version:4;
 		};
 		uint16_t flags;
-	};
+	} flags;
 
 	union
 	{
 		PhyRegPktClause22Mess_t clause22;
 		PhyRegPktClause45Mess_t clause45;
-	};
+	} clause;
 }PhyRegPkt_t;
 
 typedef enum
