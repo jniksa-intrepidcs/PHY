@@ -4231,7 +4231,6 @@ PyObject* meth_read_write_phy_settings(PyObject* self, PyObject* args)
 {
     PyObject* obj = NULL;
     PyObject* settings = NULL;
-    bool created_tuple = false;
     if (!PyArg_ParseTuple(args, arg_parse("OO:", __FUNCTION__), &obj, &settings)) {
         return NULL;
     }
@@ -4240,17 +4239,6 @@ PyObject* meth_read_write_phy_settings(PyObject* self, PyObject* args)
                                  "Argument must be of type " MODULE_NAME "." NEO_DEVICE_OBJECT_NAME);
     }
     ICS_HANDLE handle = PyNeoDevice_GetHandle(obj);
-    PyObject* tuple = settings;
-    if (!PyTuple_CheckExact(settings)) {
-        tuple = Py_BuildValue("(O)", settings);
-        if (!tuple) {
-            return NULL;
-        }
-        created_tuple = true;
-    }
-    if (!PyTuple_CheckExact(tuple)) {
-        return set_ics_exception(exception_argument_error(), "Second argument must be of tuple type!");
-    }
     try {
         ice::Library* lib = dll_get_library();
         if (!lib) {
@@ -4258,39 +4246,27 @@ PyObject* meth_read_write_phy_settings(PyObject* self, PyObject* args)
             return set_ics_exception(exception_runtime_error(), dll_get_error(buffer));
         }
         ice::Function<int __stdcall(ICS_HANDLE, PhyRegPkt_t*, size_t, size_t)> icsneoReadWritePHYSettings(lib, "icsneoReadWritePHYSettings");
-        const Py_ssize_t TUPLE_COUNT = PyTuple_Size(tuple);
-        PhyRegPkt_t** pkts = new PhyRegPkt_t[TUPLE_COUNT]();
-        for (size_t i = 0; i < TUPLE_COUNT; ++i) {
-            // This auto setting seems wrong.
-            // Reference: spy_message_object* obj = (spy_message_object*)PyTuple_GetItem(tuple, i);
-            // Do I need a pointer to a struct here?
-            auto setting = PyTupleGetItem(tuple, i);
-            if (!setting) {
-                if (created_tuple) {
-                    Py_XDECREF(tuple);
-                }
-                delete[] pkts;
-                return set_ics_exception(exception_runtime_error(),
-                                         "Tuple item failure? I'm definitely not sure if I can use `auto setting = ...` ");
-            }
-            pkts[i] = &(setting->/*What are we accessing? There's no individual "packet" member*/);
+        const size_t count = PyList_Size(settings);
+        BufferedStruct<PhyRegPkt_t> ccSettings(settings);
+        ccSettings->flags.Enabled;
+        std::vector<Py_buffer> buffers(count);
+        std::vector<PhyRegPkt_t> cSettings(count);
+        // PyObject_GetBuffer cannot be called on a PyListObject so map the data accordingly
+        for (size_t i = 0; i < count; ++i) {
+            auto setting = PyList_GetItem(settings, i);
+            buffers[i] = Py_buffer{};
+            PyObject_GetBuffer(setting, &buffers[i], PyBUF_C_CONTIGUOUS | PyBUF_WRITABLE);
+            // Wrap and cast the whole thing as a pointer
+            cSettings[i] = *((PhyRegPkt_t*)&buffers[i].buf);
         }
         Py_BEGIN_ALLOW_THREADS;
-        for (size_t i = 0; i < TUPLE_COUNT; ++i) {
-            if (!icsneoReadWritePHYSettings(handle, pkts[i], sizeof(PhyRegPkt_t), TUPLE_COUNT)) {
-                Py_BLOCK_THREADS;
-                if (created_tuple) {
-                    Py_XDECREF(tuple);
-                }
-                delete[] pkts;
-                return set_ics_exception(exception_runtime_error(), "icsneoReadWritePHYSettings() Failed");
-            }
-        }
+        icsneoReadWritePHYSettings(handle, cSettings.data(), sizeof(PhyRegPkt_t), count);
         Py_END_ALLOW_THREADS;
-        if (created_tuple) {
-            Py_XDECREF(tuple);
+        for (size_t i = 0; i < count; ++i) {
+            // Same here, wrap and cast the whole thing as a pointer
+            *((PhyRegPkt_t*)&buffers[i].buf) = cSettings[i];
+            PyBuffer_Release(&buffers[i]);
         }
-        delete[] pkts;
         Py_RETURN_NONE;
     } catch (ice::Exception& ex) {
         return set_ics_exception(exception_runtime_error(), (char*)ex.what());
